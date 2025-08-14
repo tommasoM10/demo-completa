@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a3d62" />
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<title>SeaGuard v3.1 FULL</title>
+<style>
+:root { --padb: env(safe-area-inset-bottom, 0px); --padt: env(safe-area-inset-top, 0px); }
+html, body { margin:0; padding:0; height:100%; background:#061a2b; color:#eaf2f9; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+#app { position:fixed; inset:0; display:flex; flex-direction:column; }
+header { position:relative; z-index:6; background:#0a3d62; padding:8px 12px calc(6px + var(--padt)) 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+header h1 { margin:0; font-size:18px; }
+.legend { display:flex; gap:8px; align-items:center; font-size:12px; opacity:0.9; }
+.legend .box { width:12px; height:12px; border-radius:2px; display:inline-block; }
+#menuToggle, #mapToggle { padding:8px 10px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; font-weight:700; }
+#dropdown { position:absolute; left:0; right:0; top:100%; background:#0c2742; border-bottom:1px solid #214d78; box-shadow:0 10px 30px rgba(0,0,0,.35); display:none; }
+#dropdown.open { display:block; }
+#dropdown .inner { padding:12px; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; max-height:70vh; overflow:auto; }
+.card { background:#07233b; border:1px solid #214d78; border-radius:10px; padding:10px; }
+label { display:block; font-size:13px; opacity:0.9; margin-bottom:4px; }
+select, input[type=number], input[type=range], input[type=checkbox], button { width:100%; padding:8px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; }
+button.primary { background:#1e90ff; border-color:#1e90ff; color:#001221; font-weight:700; }
+button.warn { background:#ffc107; color:#001221; border-color:#ffc107; }
+button.danger { background:#ff4757; border-color:#ff4757; }
+main { position:relative; flex:1; }
+#stage { position:absolute; inset:0; background:#001221; }
+video, canvas#overlay { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+#hud { position:absolute; left:0; right:0; top:0; padding:8px 10px; display:none; justify-content:center; z-index:5; }
+#fsBtn { position:absolute; right:10px; bottom: calc(12px + var(--padb)); z-index:4; padding:8px 10px; border-radius:8px; border:1px solid #214d78; background:#0b3357; color:#eaf2f9; font-weight:700; }
+#mapCanvas { position:absolute; left:10px; bottom: calc(56px + var(--padb)); width:200px; height:130px; background:#061a2b; border:1px solid #214d78; border-radius:8px; display:none; z-index:4; }
+#mapLegend { position:absolute; left:14px; bottom: calc(194px + var(--padb)); font-size:11px; opacity:.9; display:none; z-index:4; }
+.flash { animation: flash 0.8s linear infinite; }
+@keyframes flash { 0%,100%{ box-shadow: inset 0 0 0 6px rgba(255,71,87,0.0);} 50%{ box-shadow: inset 0 0 0 6px rgba(255,71,87,0.75);} }
+#guide { position:absolute; inset:0; background:rgba(0,0,0,0.65); display:none; align-items:center; justify-content:center; flex-direction:column; z-index:7; text-align:center; }
+#guide svg { width: 56vw; max-width: 520px; height: auto; }
+#guide .meta { margin-top:10px; font-size:18px; }
+#guide .close { position:absolute; top:12px; right:12px; padding:10px 12px; border-radius:12px; background:#ff4757; color:#fff; border:none; font-weight:800; }
+#guide .big { font-size:24px; font-weight:800; margin-top:12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>SeaGuard v3.1 FULL <span style="font-size:12px; opacity:.85;">Prototype</span></h1>
+    <div class="legend">
+      <span class="box" style="background:#2ed573"></span> visibile
+      <span class="box" style="background:#ffa502"></span> pre-allerta
+      <span class="box" style="background:#ff4757"></span> allerta
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="mapToggle">Mappa</button>
+      <button id="menuToggle">☰ Menu</button>
+    </div>
+    <div id="dropdown">
+      <div class="inner">
+        <div class="card">
+          <label for="sourceSelect">Sorgente</label>
+          <select id="sourceSelect">
+            <option value="camera" selected>Fotocamera</option>
+            <option value="demo">Demo (video realistico)</option>
+          </select>
+          <label for="cameraSelect" style="margin-top:8px;">Fotocamera</label>
+          <select id="cameraSelect">
+            <option value="env">Posteriore (grandangolo)</option>
+            <option value="user">Anteriore (selfie)</option>
+          </select>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="startBtn" class="primary">Avvia sessione</button>
+            <button id="stopBtn" class="danger">Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <label for="seaState">Stato del mare (0–10)</label>
+          <input id="seaState" type="range" min="0" max="10" step="1" value="4">
+          <label for="confThreshold" style="margin-top:8px;">Conf. rilevazione persona</label>
+          <input id="confThreshold" type="range" min="0.3" max="0.9" step="0.05" value="0.6">
+          <label style="margin-top:8px;"><input type="checkbox" id="useMoveNet"> MoveNet (keypoints)</label>
+          <label for="ensembleStrict" style="margin-top:8px;"><input type="checkbox" id="ensembleStrict" checked> Allerta solo se detector+pose concordano</label>
+        </div>
+        <div class="card">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div>
+              <label for="preAlertSec">Pre-allerta (s)</label>
+              <input id="preAlertSec" type="number" min="0.5" max="10" step="0.1" value="2.5">
+            </div>
+            <div>
+              <label for="alertSec">Allerta piena (s)</label>
+              <input id="alertSec" type="number" min="2" max="15" step="0.1" value="6.5">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+            <button id="roiBtn" class="warn">Disegna ROI (area acqua)</button>
+            <button id="clearRoiBtn">Cancella ROI</button>
+          </div>
+          <div class="card" style="margin-top:8px;">
+            <label for="demoInterval">Demo: intervallo sparizione (s)</label>
+            <input id="demoInterval" type="number" min="8" max="30" step="1" value="12">
+            <label for="demoDisappearSec" style="margin-top:8px;">Demo: durata sparizione (s)</label>
+            <input id="demoDisappearSec" type="number" min="4" max="20" step="1" value="8">
+            <label for="demoRealism" style="margin-top:8px;">Demo: realismo onde/occlusioni (0–1)</label>
+            <input id="demoRealism" type="range" min="0" max="1" step="0.05" value="0.7">
+          </div>
+        </div>
+        <div class="card">
+          <div><strong>Stato:</strong> <span id="runState">inattivo</span></div>
+          <div><strong>FPS:</strong> <span id="fps">-</span></div>
+          <div><strong>Allarmi attivi:</strong> <span id="alarmCount">0</span></div>
+          <div><strong>Deriva stimata:</strong> <span id="driftVec">0,0</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="stage">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <canvas id="mapCanvas"></canvas>
+      <div id="mapLegend" style="display:none;">LS=Ultimo visto • EST=Stimato</div>
+      <div id="hud" class="chip"></div>
+      <button id="fsBtn">Schermo intero</button>
+      <div id="guide">
+        <button class="close" id="guideClose">Chiudi</button>
+        <svg viewBox="0 0 200 200">
+          <polygon id="arrow" points="100,10 135,90 115,90 115,190 85,190 85,90 65,90" fill="#ff4757" stroke="#ffffff" stroke-width="4"/>
+        </svg>
+        <div class="big" id="guideTitle">ALLERTA</div>
+        <div class="meta" id="guideMeta">0.0 s · 0.0 m stimati</div>
+        <div class="meta" id="gpsMeta">GPS: -- · Bussola: --</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@3.7.0/dist/pose-detection.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
